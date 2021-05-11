@@ -247,7 +247,7 @@
     <ClInclude Include="Common\DeviceResources.h" />
     <ClInclude Include="Content\Core\BaseSceneRenderer.h" />
     <ClInclude Include="Content\Core\MeshData.h" />
-    <ClInclude Include="Content\Core\Vertex.h" />
+    <ClInclude Include="Content\Core\VertexData.h" />
     <ClInclude Include="DX12StudyProjectMain.h" />
     <ClInclude Include="Common\DirectXHelper.h" />
     <ClInclude Include="Common\StepTimer.h" />

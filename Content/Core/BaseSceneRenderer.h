@@ -3,6 +3,7 @@
 #include "..\Common\DeviceResources.h"
 #include "ShaderStructures.h"
 #include "..\Common\StepTimer.h"
+#include <ppltasks.h>
 
 namespace DX12StudyProject
 {
@@ -12,8 +13,16 @@ namespace DX12StudyProject
 	public:
 		BaseSceneRenderer(const std::shared_ptr<DX::DeviceResources>& deviceResources);
 		~BaseSceneRenderer();
+
 		void CreateDeviceDependentResources();
+		void CreateRootSigniture();
+		Concurrency::task<void> CreateVertexShaderTask();
+		Concurrency::task<void> CreatePixelShaderTask();
+		void CreatePipelineState();
+		void CreateAssets();
+
 		void CreateWindowSizeDependentResources();
+
 		void Update(DX::StepTimer const& timer);
 		bool Render();
 		void SaveState();

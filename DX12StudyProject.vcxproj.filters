@@ -75,7 +75,7 @@
     <ClInclude Include="Content\Core\ShaderStructures.h">
       <Filter>Content\Core</Filter>
     </ClInclude>
-    <ClInclude Include="Content\Core\Vertex.h">
+    <ClInclude Include="Content\Core\VertexData.h">
       <Filter>Content\Core</Filter>
     </ClInclude>
     <ClInclude Include="Content\Core\MeshData.h">
