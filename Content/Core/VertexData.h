@@ -2,11 +2,11 @@
 
 #include <DirectXMath.h>
 
-struct Vertex
+struct VertexData
 {
-    Vertex() {}
+    VertexData() {}
 
-    Vertex(
+    VertexData(
         const DirectX::XMFLOAT3& p,
         const DirectX::XMFLOAT3& n,
         const DirectX::XMFLOAT3& t,
@@ -16,7 +16,7 @@ struct Vertex
         TangentU(t),
         TexC(uv) {}
 
-    Vertex(
+    VertexData(
         float px, float py, float pz,
         float nx, float ny, float nz,
         float tx, float ty, float tz,
