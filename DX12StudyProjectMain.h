@@ -2,7 +2,7 @@
 
 #include "Common\StepTimer.h"
 #include "Common\DeviceResources.h"
-#include "Content\BaseSceneRenderer.h"
+#include "Content\Core\BaseSceneRenderer.h"
 
 // Renders Direct3D content on the screen.
 namespace DX12StudyProject

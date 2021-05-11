@@ -26,9 +26,6 @@
     <ClCompile Include="Common\DeviceResources.cpp">
       <Filter>Common</Filter>
     </ClCompile>
-    <ClInclude Include="Content\ShaderStructures.h">
-      <Filter>Content</Filter>
-    </ClInclude>
     <FxCompile Include="Content\SamplePixelShader.hlsl">
       <Filter>Content</Filter>
     </FxCompile>
@@ -56,21 +53,33 @@
     <Image Include="Assets\Wide310x150Logo.scale-200.png">
       <Filter>Assets</Filter>
     </Image>
+    <Filter Include="Content\Core">
+      <UniqueIdentifier>{747a2047-ec0e-45be-a30f-32f63439d6f4}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
     <ClCompile Include="DX12StudyProjectMain.cpp" />
     <ClCompile Include="pch.cpp" />
-    <ClCompile Include="Content\BaseSceneRenderer.cpp">
-      <Filter>Content</Filter>
+    <ClCompile Include="Content\Core\BaseSceneRenderer.cpp">
+      <Filter>Content\Core</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
     <ClInclude Include="DX12StudyProjectMain.h" />
     <ClInclude Include="pch.h" />
-    <ClInclude Include="Content\BaseSceneRenderer.h">
-      <Filter>Content</Filter>
+    <ClInclude Include="Content\Core\BaseSceneRenderer.h">
+      <Filter>Content\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\Core\ShaderStructures.h">
+      <Filter>Content\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\Core\Vertex.h">
+      <Filter>Content\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\Core\MeshData.h">
+      <Filter>Content\Core</Filter>
     </ClInclude>
   </ItemGroup>
   <ItemGroup>

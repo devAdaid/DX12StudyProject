@@ -245,17 +245,19 @@
     <ClInclude Include="App.h" />
     <ClInclude Include="Common\d3dx12.h" />
     <ClInclude Include="Common\DeviceResources.h" />
-    <ClInclude Include="Content\BaseSceneRenderer.h" />
+    <ClInclude Include="Content\Core\BaseSceneRenderer.h" />
+    <ClInclude Include="Content\Core\MeshData.h" />
+    <ClInclude Include="Content\Core\Vertex.h" />
     <ClInclude Include="DX12StudyProjectMain.h" />
     <ClInclude Include="Common\DirectXHelper.h" />
     <ClInclude Include="Common\StepTimer.h" />
-    <ClInclude Include="Content\ShaderStructures.h" />
+    <ClInclude Include="Content\Core\ShaderStructures.h" />
     <ClInclude Include="pch.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="App.cpp" />
     <ClCompile Include="Common\DeviceResources.cpp" />
-    <ClCompile Include="Content\BaseSceneRenderer.cpp" />
+    <ClCompile Include="Content\Core\BaseSceneRenderer.cpp" />
     <ClCompile Include="DX12StudyProjectMain.cpp" />
     <ClCompile Include="pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
