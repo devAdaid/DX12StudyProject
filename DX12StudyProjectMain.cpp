@@ -24,7 +24,7 @@ DX12StudyProjectMain::DX12StudyProjectMain()
 void DX12StudyProjectMain::CreateRenderers(const std::shared_ptr<DX::DeviceResources>& deviceResources)
 {
 	// TODO: Replace this with your app's content initialization.
-	m_sceneRenderer = std::unique_ptr<Sample3DSceneRenderer>(new Sample3DSceneRenderer(deviceResources));
+	m_sceneRenderer = std::unique_ptr<BaseSceneRenderer>(new BaseSceneRenderer(deviceResources));
 
 	OnWindowSizeChanged();
 }
