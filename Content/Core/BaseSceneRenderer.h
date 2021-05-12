@@ -20,6 +20,15 @@ namespace DX12StudyProject
 		Concurrency::task<void> CreatePixelShaderTask();
 		void CreatePipelineState();
 		void CreateAssets();
+		void CreateGeometry();
+
+		static Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(
+			ID3D12Device* device,
+			ID3D12GraphicsCommandList* cmdList,
+			Microsoft::WRL::ComPtr<ID3D12Resource>& uploadedBuffer,
+			const void* initData,
+			UINT64 byteSize,
+			D3D12_RESOURCE_STATES resourceState);
 
 		void CreateWindowSizeDependentResources();
 
@@ -50,8 +59,10 @@ namespace DX12StudyProject
 		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>		m_cbvHeap;
 		Microsoft::WRL::ComPtr<ID3D12Resource>				m_vertexBuffer;
 		Microsoft::WRL::ComPtr<ID3D12Resource>				m_indexBuffer;
-		Microsoft::WRL::ComPtr<ID3D12Resource>				m_constantBuffer;
-		ModelViewProjectionConstantBuffer					m_constantBufferData;
+		Microsoft::WRL::ComPtr<ID3D12Resource>				m_passConstantBuffer;
+		//Microsoft::WRL::ComPtr<ID3D12Resource>				m_objectConstantBuffer;
+		ModelViewProjectionConstantBuffer						m_passConstantBufferData;
+		//DirectX::XMFLOAT4X4									m_objectConstantBufferData;
 		UINT8* m_mappedConstantBuffer;
 		UINT												m_cbvDescriptorSize;
 		D3D12_RECT											m_scissorRect;

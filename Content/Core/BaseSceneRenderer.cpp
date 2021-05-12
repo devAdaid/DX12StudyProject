@@ -27,7 +27,8 @@ BaseSceneRenderer::BaseSceneRenderer(const std::shared_ptr<DX::DeviceResources>&
 	m_deviceResources(deviceResources)
 {
 	LoadState();
-	ZeroMemory(&m_constantBufferData, sizeof(m_constantBufferData));
+	//ZeroMemory(&m_objectConstantBufferData, sizeof(m_objectConstantBufferData));
+	ZeroMemory(&m_passConstantBufferData, sizeof(m_passConstantBufferData));
 
 	CreateDeviceDependentResources();
 	CreateWindowSizeDependentResources();
@@ -35,7 +36,7 @@ BaseSceneRenderer::BaseSceneRenderer(const std::shared_ptr<DX::DeviceResources>&
 
 BaseSceneRenderer::~BaseSceneRenderer()
 {
-	m_constantBuffer->Unmap(0, nullptr);
+	m_passConstantBuffer->Unmap(0, nullptr);
 	m_mappedConstantBuffer = nullptr;
 }
 
@@ -153,41 +154,8 @@ void BaseSceneRenderer::CreateAssets()
 	// Create the vertex buffer resource in the GPU's default heap and copy vertex data into it using the upload heap.
 	// The upload resource must not be released until after the GPU has finished using it.
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferUpload;
-
-	CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
-	CD3DX12_RESOURCE_DESC vertexBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(vertexBufferSize);
-	DX::ThrowIfFailed(d3dDevice->CreateCommittedResource(
-		&defaultHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&vertexBufferDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		nullptr,
-		IID_PPV_ARGS(&m_vertexBuffer)));
-
-	CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
-	DX::ThrowIfFailed(d3dDevice->CreateCommittedResource(
-		&uploadHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&vertexBufferDesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&vertexBufferUpload)));
-
+	m_vertexBuffer = CreateDefaultBuffer(d3dDevice, m_commandList.Get(), vertexBufferUpload, reinterpret_cast<BYTE*>(cubeVertices), vertexBufferSize, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 	NAME_D3D12_OBJECT(m_vertexBuffer);
-
-	// Upload the vertex buffer to the GPU.
-	{
-		D3D12_SUBRESOURCE_DATA vertexData = {};
-		vertexData.pData = reinterpret_cast<BYTE*>(cubeVertices);
-		vertexData.RowPitch = vertexBufferSize;
-		vertexData.SlicePitch = vertexData.RowPitch;
-
-		UpdateSubresources(m_commandList.Get(), m_vertexBuffer.Get(), vertexBufferUpload.Get(), 0, 0, 1, &vertexData);
-
-		CD3DX12_RESOURCE_BARRIER vertexBufferResourceBarrier =
-			CD3DX12_RESOURCE_BARRIER::Transition(m_vertexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-		m_commandList->ResourceBarrier(1, &vertexBufferResourceBarrier);
-	}
 
 	// Load mesh indices. Each trio of indices represents a triangle to be rendered on the screen.
 	// For example: 0,2,1 means that the vertices with indexes 0, 2 and 1 from the vertex buffer compose the
@@ -218,6 +186,9 @@ void BaseSceneRenderer::CreateAssets()
 	// Create the index buffer resource in the GPU's default heap and copy index data into it using the upload heap.
 	// The upload resource must not be released until after the GPU has finished using it.
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferUpload;
+
+	CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+	CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
 
 	CD3DX12_RESOURCE_DESC indexBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);
 	DX::ThrowIfFailed(d3dDevice->CreateCommittedResource(
@@ -271,12 +242,12 @@ void BaseSceneRenderer::CreateAssets()
 		&constantBufferDesc,
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
-		IID_PPV_ARGS(&m_constantBuffer)));
+		IID_PPV_ARGS(&m_passConstantBuffer)));
 
-	NAME_D3D12_OBJECT(m_constantBuffer);
+	NAME_D3D12_OBJECT(m_passConstantBuffer);
 
 	// Create constant buffer views to access the upload buffer.
-	D3D12_GPU_VIRTUAL_ADDRESS cbvGpuAddress = m_constantBuffer->GetGPUVirtualAddress();
+	D3D12_GPU_VIRTUAL_ADDRESS cbvGpuAddress = m_passConstantBuffer->GetGPUVirtualAddress();
 	CD3DX12_CPU_DESCRIPTOR_HANDLE cbvCpuHandle(m_cbvHeap->GetCPUDescriptorHandleForHeapStart());
 	m_cbvDescriptorSize = d3dDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
 
@@ -293,7 +264,7 @@ void BaseSceneRenderer::CreateAssets()
 
 	// Map the constant buffers.
 	CD3DX12_RANGE readRange(0, 0);		// We do not intend to read from this resource on the CPU.
-	DX::ThrowIfFailed(m_constantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_mappedConstantBuffer)));
+	DX::ThrowIfFailed(m_passConstantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_mappedConstantBuffer)));
 	ZeroMemory(m_mappedConstantBuffer, DX::c_frameCount * c_alignedConstantBufferSize);
 	// We don't unmap this until the app closes. Keeping things mapped for the lifetime of the resource is okay.
 
@@ -313,6 +284,98 @@ void BaseSceneRenderer::CreateAssets()
 
 	// Wait for the command list to finish executing; the vertex/index buffers need to be uploaded to the GPU before the upload resources go out of scope.
 	m_deviceResources->WaitForGpu();
+}
+
+void BaseSceneRenderer::CreateGeometry()
+{
+	// Cube vertices. Each vertex has a position and a color.
+	VertexPositionColor cubeVertices[] =
+	{
+		{ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
+		{ XMFLOAT3(-0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 1.0f, 1.0f) },
+		{ XMFLOAT3(0.5f, -0.5f, -0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
+		{ XMFLOAT3(0.5f, -0.5f,  0.5f), XMFLOAT3(1.0f, 0.0f, 1.0f) },
+		{ XMFLOAT3(0.5f,  0.5f, -0.5f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
+		{ XMFLOAT3(0.5f,  0.5f,  0.5f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
+	};
+
+	const UINT vertexBufferSize = sizeof(cubeVertices);
+
+	// Load mesh indices. Each trio of indices represents a triangle to be rendered on the screen.
+	// For example: 0,2,1 means that the vertices with indexes 0, 2 and 1 from the vertex buffer compose the
+	// first triangle of this mesh.
+	unsigned short cubeIndices[] =
+	{
+		0, 2, 1, // -x
+		1, 2, 3,
+
+		4, 5, 6, // +x
+		5, 7, 6,
+
+		0, 1, 5, // -y
+		0, 5, 4,
+
+		2, 6, 7, // +y
+		2, 7, 3,
+
+		0, 4, 6, // -z
+		0, 6, 2,
+
+		1, 3, 7, // +z
+		1, 7, 5,
+	};
+
+	const UINT indexBufferSize = sizeof(cubeIndices);
+}
+
+Microsoft::WRL::ComPtr<ID3D12Resource> BaseSceneRenderer::CreateDefaultBuffer(
+	ID3D12Device* d3dDevice,
+	ID3D12GraphicsCommandList* commandList,
+	Microsoft::WRL::ComPtr<ID3D12Resource>& uploadedBuffer,
+	const void* bufferData,
+	UINT64 bufferSize,
+	D3D12_RESOURCE_STATES resourceState)
+{
+	// Create the vertex buffer resource in the GPU's default heap and copy vertex data into it using the upload heap.
+	// The upload resource must not be released until after the GPU has finished using it.
+	Microsoft::WRL::ComPtr<ID3D12Resource> defaultBuffer;
+
+	CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
+	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize);
+	DX::ThrowIfFailed(d3dDevice->CreateCommittedResource(
+		&defaultHeapProperties,
+		D3D12_HEAP_FLAG_NONE,
+		&bufferDesc,
+		D3D12_RESOURCE_STATE_COPY_DEST,
+		nullptr,
+		IID_PPV_ARGS(&defaultBuffer)));
+
+	CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
+	DX::ThrowIfFailed(d3dDevice->CreateCommittedResource(
+		&uploadHeapProperties,
+		D3D12_HEAP_FLAG_NONE,
+		&bufferDesc,
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&uploadedBuffer)));
+
+	// Upload the vertex buffer to the GPU.
+	{
+		D3D12_SUBRESOURCE_DATA subResourceData = {};
+		subResourceData.pData = bufferData;
+		subResourceData.RowPitch = bufferSize;
+		subResourceData.SlicePitch = subResourceData.RowPitch;
+
+		UpdateSubresources(commandList, defaultBuffer.Get(), uploadedBuffer.Get(), 0, 0, 1, &subResourceData);
+
+		CD3DX12_RESOURCE_BARRIER resourceBarrier =
+			CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, resourceState);
+		commandList->ResourceBarrier(1, &resourceBarrier);
+	}
+
+	return defaultBuffer;
 }
 #pragma endregion
 
@@ -351,7 +414,7 @@ void BaseSceneRenderer::CreateWindowSizeDependentResources()
 	XMMATRIX orientationMatrix = XMLoadFloat4x4(&orientation);
 
 	XMStoreFloat4x4(
-		&m_constantBufferData.projection,
+		&m_passConstantBufferData.projection,
 		XMMatrixTranspose(perspectiveMatrix * orientationMatrix)
 	);
 
@@ -360,7 +423,7 @@ void BaseSceneRenderer::CreateWindowSizeDependentResources()
 	static const XMVECTORF32 at = { 0.0f, -0.1f, 0.0f, 0.0f };
 	static const XMVECTORF32 up = { 0.0f, 1.0f, 0.0f, 0.0f };
 
-	XMStoreFloat4x4(&m_constantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
+	XMStoreFloat4x4(&m_passConstantBufferData.view, XMMatrixTranspose(XMMatrixLookAtRH(eye, at, up)));
 }
 
 // Called once per frame, rotates the cube and calculates the model and view matrices.
@@ -378,7 +441,7 @@ void BaseSceneRenderer::Update(DX::StepTimer const& timer)
 
 		// Update the constant buffer resource.
 		UINT8* destination = m_mappedConstantBuffer + (m_deviceResources->GetCurrentFrameIndex() * c_alignedConstantBufferSize);
-		memcpy(destination, &m_constantBufferData, sizeof(m_constantBufferData));
+		memcpy(destination, &m_passConstantBufferData, sizeof(m_passConstantBufferData));
 	}
 }
 
@@ -420,7 +483,7 @@ void BaseSceneRenderer::LoadState()
 void BaseSceneRenderer::Rotate(float radians)
 {
 	// Prepare to pass the updated model matrix to the shader.
-	XMStoreFloat4x4(&m_constantBufferData.model, XMMatrixTranspose(XMMatrixRotationY(radians)));
+	XMStoreFloat4x4(&m_passConstantBufferData.model, XMMatrixTranspose(XMMatrixRotationY(radians)));
 }
 
 void BaseSceneRenderer::StartTracking()
