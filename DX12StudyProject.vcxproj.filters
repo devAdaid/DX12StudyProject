@@ -64,6 +64,12 @@
     <ClCompile Include="Content\Core\BaseSceneRenderer.cpp">
       <Filter>Content\Core</Filter>
     </ClCompile>
+    <ClCompile Include="Content\Core\MeshGeometry.cpp">
+      <Filter>Content\Core</Filter>
+    </ClCompile>
+    <ClCompile Include="Content\Core\DXUtil.cpp">
+      <Filter>Content\Core</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="App.h" />
@@ -79,6 +85,15 @@
       <Filter>Content\Core</Filter>
     </ClInclude>
     <ClInclude Include="Content\Core\MeshData.h">
+      <Filter>Content\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\Core\RenderItem.h">
+      <Filter>Content\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\Core\MeshGeometry.h">
+      <Filter>Content\Core</Filter>
+    </ClInclude>
+    <ClInclude Include="Content\Core\DXUtil.h">
       <Filter>Content\Core</Filter>
     </ClInclude>
   </ItemGroup>

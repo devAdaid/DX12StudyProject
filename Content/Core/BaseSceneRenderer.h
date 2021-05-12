@@ -23,14 +23,6 @@ namespace DX12StudyProject
 		void CreateGeometry();
 		void CreateConstantBuffer();
 
-		static Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(
-			ID3D12Device* device,
-			ID3D12GraphicsCommandList* cmdList,
-			Microsoft::WRL::ComPtr<ID3D12Resource>& uploadedBuffer,
-			const void* initData,
-			UINT64 byteSize,
-			D3D12_RESOURCE_STATES resourceState);
-
 		void CreateWindowSizeDependentResources();
 
 		void Update(DX::StepTimer const& timer);

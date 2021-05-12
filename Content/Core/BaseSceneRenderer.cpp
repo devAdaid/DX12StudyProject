@@ -1,5 +1,6 @@
 #include "pch.h"
 #include "BaseSceneRenderer.h"
+#include "DXUtil.h"
 
 #include "..\Common\DirectXHelper.h"
 #include <ppltasks.h>
@@ -49,11 +50,11 @@ void BaseSceneRenderer::CreateDeviceDependentResources()
 	auto createPSTask = CreatePixelShaderTask();
 
 	(createVSTask && createPSTask)
-		.then([this]() { CreatePipelineState(); })
-		.then([this]() { CreateAssets(); })
-		.then([this]() {
-				m_loadingComplete = true;
-			});;
+		.then([this]() { 
+		CreatePipelineState(); 
+		CreateAssets();
+		m_loadingComplete = true;
+			});
 }
 
 void BaseSceneRenderer::CreateRootSigniture()
@@ -154,7 +155,7 @@ void BaseSceneRenderer::CreateAssets()
 	// Create the vertex buffer resource in the GPU's default heap and copy vertex data into it using the upload heap.
 	// The upload resource must not be released until after the GPU has finished using it.
 	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferUpload;
-	m_vertexBuffer = CreateDefaultBuffer(d3dDevice, m_commandList.Get(), vertexBufferUpload, reinterpret_cast<BYTE*>(cubeVertices), vertexBufferSize, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+	m_vertexBuffer = DXUtil::CreateDefaultBuffer(d3dDevice, m_commandList.Get(), vertexBufferUpload, reinterpret_cast<BYTE*>(cubeVertices), vertexBufferSize, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 	NAME_D3D12_OBJECT(m_vertexBuffer);
 
 	// Load mesh indices. Each trio of indices represents a triangle to be rendered on the screen.
@@ -186,7 +187,7 @@ void BaseSceneRenderer::CreateAssets()
 	// Create the index buffer resource in the GPU's default heap and copy index data into it using the upload heap.
 	// The upload resource must not be released until after the GPU has finished using it.
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferUpload;
-	m_indexBuffer = CreateDefaultBuffer(d3dDevice, m_commandList.Get(), indexBufferUpload, reinterpret_cast<BYTE*>(cubeIndices), indexBufferSize, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+	m_indexBuffer = DXUtil::CreateDefaultBuffer(d3dDevice, m_commandList.Get(), indexBufferUpload, reinterpret_cast<BYTE*>(cubeIndices), indexBufferSize, D3D12_RESOURCE_STATE_INDEX_BUFFER);
 	NAME_D3D12_OBJECT(m_indexBuffer);
 
 	// Create Constant Buffer
@@ -213,6 +214,7 @@ void BaseSceneRenderer::CreateAssets()
 void BaseSceneRenderer::CreateGeometry()
 {
 }
+
 void BaseSceneRenderer::CreateConstantBuffer()
 {
 	auto d3dDevice = m_deviceResources->GetD3DDevice();
@@ -262,54 +264,6 @@ void BaseSceneRenderer::CreateConstantBuffer()
 	DX::ThrowIfFailed(m_passConstantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_mappedConstantBuffer)));
 	ZeroMemory(m_mappedConstantBuffer, DX::c_frameCount * c_alignedConstantBufferSize);
 	// We don't unmap this until the app closes. Keeping things mapped for the lifetime of the resource is okay.
-}
-
-Microsoft::WRL::ComPtr<ID3D12Resource> BaseSceneRenderer::CreateDefaultBuffer(
-	ID3D12Device* d3dDevice,
-	ID3D12GraphicsCommandList* commandList,
-	Microsoft::WRL::ComPtr<ID3D12Resource>& uploadedBuffer,
-	const void* bufferData,
-	UINT64 bufferSize,
-	D3D12_RESOURCE_STATES resourceState)
-{
-	// Create the vertex buffer resource in the GPU's default heap and copy vertex data into it using the upload heap.
-	// The upload resource must not be released until after the GPU has finished using it.
-	Microsoft::WRL::ComPtr<ID3D12Resource> defaultBuffer;
-
-	CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
-	CD3DX12_RESOURCE_DESC bufferDesc = CD3DX12_RESOURCE_DESC::Buffer(bufferSize);
-	DX::ThrowIfFailed(d3dDevice->CreateCommittedResource(
-		&defaultHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&bufferDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		nullptr,
-		IID_PPV_ARGS(&defaultBuffer)));
-
-	CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
-	DX::ThrowIfFailed(d3dDevice->CreateCommittedResource(
-		&uploadHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&bufferDesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&uploadedBuffer)));
-
-	// Upload the vertex buffer to the GPU.
-	{
-		D3D12_SUBRESOURCE_DATA subResourceData = {};
-		subResourceData.pData = bufferData;
-		subResourceData.RowPitch = bufferSize;
-		subResourceData.SlicePitch = subResourceData.RowPitch;
-
-		UpdateSubresources(commandList, defaultBuffer.Get(), uploadedBuffer.Get(), 0, 0, 1, &subResourceData);
-
-		CD3DX12_RESOURCE_BARRIER resourceBarrier =
-			CD3DX12_RESOURCE_BARRIER::Transition(defaultBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, resourceState);
-		commandList->ResourceBarrier(1, &resourceBarrier);
-	}
-
-	return defaultBuffer;
 }
 #pragma endregion
 
