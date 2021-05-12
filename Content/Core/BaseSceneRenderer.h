@@ -21,6 +21,7 @@ namespace DX12StudyProject
 		void CreatePipelineState();
 		void CreateAssets();
 		void CreateGeometry();
+		void CreateConstantBuffer();
 
 		static Microsoft::WRL::ComPtr<ID3D12Resource> CreateDefaultBuffer(
 			ID3D12Device* device,

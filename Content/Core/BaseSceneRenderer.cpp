@@ -186,42 +186,36 @@ void BaseSceneRenderer::CreateAssets()
 	// Create the index buffer resource in the GPU's default heap and copy index data into it using the upload heap.
 	// The upload resource must not be released until after the GPU has finished using it.
 	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferUpload;
-
-	CD3DX12_HEAP_PROPERTIES defaultHeapProperties(D3D12_HEAP_TYPE_DEFAULT);
-	CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
-
-	CD3DX12_RESOURCE_DESC indexBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(indexBufferSize);
-	DX::ThrowIfFailed(d3dDevice->CreateCommittedResource(
-		&defaultHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&indexBufferDesc,
-		D3D12_RESOURCE_STATE_COPY_DEST,
-		nullptr,
-		IID_PPV_ARGS(&m_indexBuffer)));
-
-	DX::ThrowIfFailed(d3dDevice->CreateCommittedResource(
-		&uploadHeapProperties,
-		D3D12_HEAP_FLAG_NONE,
-		&indexBufferDesc,
-		D3D12_RESOURCE_STATE_GENERIC_READ,
-		nullptr,
-		IID_PPV_ARGS(&indexBufferUpload)));
-
+	m_indexBuffer = CreateDefaultBuffer(d3dDevice, m_commandList.Get(), indexBufferUpload, reinterpret_cast<BYTE*>(cubeIndices), indexBufferSize, D3D12_RESOURCE_STATE_INDEX_BUFFER);
 	NAME_D3D12_OBJECT(m_indexBuffer);
 
-	// Upload the index buffer to the GPU.
-	{
-		D3D12_SUBRESOURCE_DATA indexData = {};
-		indexData.pData = reinterpret_cast<BYTE*>(cubeIndices);
-		indexData.RowPitch = indexBufferSize;
-		indexData.SlicePitch = indexData.RowPitch;
+	// Create Constant Buffer
+	CreateConstantBuffer();
 
-		UpdateSubresources(m_commandList.Get(), m_indexBuffer.Get(), indexBufferUpload.Get(), 0, 0, 1, &indexData);
+	// Close the command list and execute it to begin the vertex/index buffer copy into the GPU's default heap.
+	DX::ThrowIfFailed(m_commandList->Close());
+	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
+	m_deviceResources->GetCommandQueue()->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
 
-		CD3DX12_RESOURCE_BARRIER indexBufferResourceBarrier =
-			CD3DX12_RESOURCE_BARRIER::Transition(m_indexBuffer.Get(), D3D12_RESOURCE_STATE_COPY_DEST, D3D12_RESOURCE_STATE_INDEX_BUFFER);
-		m_commandList->ResourceBarrier(1, &indexBufferResourceBarrier);
-	}
+	// Create vertex/index buffer views.
+	m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
+	m_vertexBufferView.StrideInBytes = sizeof(VertexPositionColor);
+	m_vertexBufferView.SizeInBytes = sizeof(cubeVertices);
+
+	m_indexBufferView.BufferLocation = m_indexBuffer->GetGPUVirtualAddress();
+	m_indexBufferView.SizeInBytes = sizeof(cubeIndices);
+	m_indexBufferView.Format = DXGI_FORMAT_R16_UINT;
+
+	// Wait for the command list to finish executing; the vertex/index buffers need to be uploaded to the GPU before the upload resources go out of scope.
+	m_deviceResources->WaitForGpu();
+}
+
+void BaseSceneRenderer::CreateGeometry()
+{
+}
+void BaseSceneRenderer::CreateConstantBuffer()
+{
+	auto d3dDevice = m_deviceResources->GetD3DDevice();
 
 	// Create a descriptor heap for the constant buffers.
 	{
@@ -236,6 +230,7 @@ void BaseSceneRenderer::CreateAssets()
 	}
 
 	CD3DX12_RESOURCE_DESC constantBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(DX::c_frameCount * c_alignedConstantBufferSize);
+	CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
 	DX::ThrowIfFailed(d3dDevice->CreateCommittedResource(
 		&uploadHeapProperties,
 		D3D12_HEAP_FLAG_NONE,
@@ -267,67 +262,6 @@ void BaseSceneRenderer::CreateAssets()
 	DX::ThrowIfFailed(m_passConstantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_mappedConstantBuffer)));
 	ZeroMemory(m_mappedConstantBuffer, DX::c_frameCount * c_alignedConstantBufferSize);
 	// We don't unmap this until the app closes. Keeping things mapped for the lifetime of the resource is okay.
-
-	// Close the command list and execute it to begin the vertex/index buffer copy into the GPU's default heap.
-	DX::ThrowIfFailed(m_commandList->Close());
-	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
-	m_deviceResources->GetCommandQueue()->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
-
-	// Create vertex/index buffer views.
-	m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
-	m_vertexBufferView.StrideInBytes = sizeof(VertexPositionColor);
-	m_vertexBufferView.SizeInBytes = sizeof(cubeVertices);
-
-	m_indexBufferView.BufferLocation = m_indexBuffer->GetGPUVirtualAddress();
-	m_indexBufferView.SizeInBytes = sizeof(cubeIndices);
-	m_indexBufferView.Format = DXGI_FORMAT_R16_UINT;
-
-	// Wait for the command list to finish executing; the vertex/index buffers need to be uploaded to the GPU before the upload resources go out of scope.
-	m_deviceResources->WaitForGpu();
-}
-
-void BaseSceneRenderer::CreateGeometry()
-{
-	// Cube vertices. Each vertex has a position and a color.
-	VertexPositionColor cubeVertices[] =
-	{
-		{ XMFLOAT3(-0.5f, -0.5f, -0.5f), XMFLOAT3(0.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(-0.5f, -0.5f,  0.5f), XMFLOAT3(0.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(-0.5f,  0.5f, -0.5f), XMFLOAT3(0.0f, 1.0f, 0.0f) },
-		{ XMFLOAT3(-0.5f,  0.5f,  0.5f), XMFLOAT3(0.0f, 1.0f, 1.0f) },
-		{ XMFLOAT3(0.5f, -0.5f, -0.5f), XMFLOAT3(1.0f, 0.0f, 0.0f) },
-		{ XMFLOAT3(0.5f, -0.5f,  0.5f), XMFLOAT3(1.0f, 0.0f, 1.0f) },
-		{ XMFLOAT3(0.5f,  0.5f, -0.5f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
-		{ XMFLOAT3(0.5f,  0.5f,  0.5f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
-	};
-
-	const UINT vertexBufferSize = sizeof(cubeVertices);
-
-	// Load mesh indices. Each trio of indices represents a triangle to be rendered on the screen.
-	// For example: 0,2,1 means that the vertices with indexes 0, 2 and 1 from the vertex buffer compose the
-	// first triangle of this mesh.
-	unsigned short cubeIndices[] =
-	{
-		0, 2, 1, // -x
-		1, 2, 3,
-
-		4, 5, 6, // +x
-		5, 7, 6,
-
-		0, 1, 5, // -y
-		0, 5, 4,
-
-		2, 6, 7, // +y
-		2, 7, 3,
-
-		0, 4, 6, // -z
-		0, 6, 2,
-
-		1, 3, 7, // +z
-		1, 7, 5,
-	};
-
-	const UINT indexBufferSize = sizeof(cubeIndices);
 }
 
 Microsoft::WRL::ComPtr<ID3D12Resource> BaseSceneRenderer::CreateDefaultBuffer(
