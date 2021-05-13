@@ -1,6 +1,10 @@
-cbuffer PassConstantBuffer : register(b0)
+cbuffer ObjectConstantBuffer : register(b0)
 {
 	matrix model;
+};
+
+cbuffer PassConstantBuffer : register(b1)
+{
 	matrix view;
 	matrix projection;
 };

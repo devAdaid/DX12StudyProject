@@ -26,11 +26,13 @@ BaseSceneRenderer::BaseSceneRenderer(const std::shared_ptr<DX::DeviceResources>&
 	m_radiansPerSecond(XM_PIDIV4),	// rotate 45 degrees per second
 	m_angle(0),
 	m_tracking(false),
-	m_mappedConstantBuffer(nullptr),
+	m_mappedObjectConstantBuffer(nullptr),
+	m_mappedPassConstantBuffer(nullptr),
 	m_deviceResources(deviceResources)
 {
 	LoadState();
 	//ZeroMemory(&m_objectConstantBufferData, sizeof(m_objectConstantBufferData));
+	ZeroMemory(&m_objectConstantBufferData, sizeof(m_objectConstantBufferData));
 	ZeroMemory(&m_passConstantBufferData, sizeof(m_passConstantBufferData));
 
 	CreateDeviceDependentResources();
@@ -39,8 +41,10 @@ BaseSceneRenderer::BaseSceneRenderer(const std::shared_ptr<DX::DeviceResources>&
 
 BaseSceneRenderer::~BaseSceneRenderer()
 {
+	m_objectConstantBuffer->Unmap(0, nullptr);
 	m_passConstantBuffer->Unmap(0, nullptr);
-	m_mappedConstantBuffer = nullptr;
+	m_mappedObjectConstantBuffer = nullptr;
+	m_mappedPassConstantBuffer = nullptr;
 }
 
 #pragma region Create Device Resources
@@ -64,26 +68,27 @@ void BaseSceneRenderer::CreateRootSigniture()
 	auto d3dDevice = m_deviceResources->GetD3DDevice();
 
 	// Create a root signature with a single constant buffer slot.
-	CD3DX12_DESCRIPTOR_RANGE range;
-	CD3DX12_ROOT_PARAMETER parameter;
+	CD3DX12_DESCRIPTOR_RANGE range[2];
+	CD3DX12_ROOT_PARAMETER parameter[1];
 
-	range.Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
-	parameter.InitAsDescriptorTable(1, &range, D3D12_SHADER_VISIBILITY_VERTEX);
+	range[0].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 0);
+	range[1].Init(D3D12_DESCRIPTOR_RANGE_TYPE_CBV, 1, 1);
+	parameter[0].InitAsDescriptorTable(_countof(range), range, D3D12_SHADER_VISIBILITY_ALL);
 
 	D3D12_ROOT_SIGNATURE_FLAGS rootSignatureFlags =
 		D3D12_ROOT_SIGNATURE_FLAG_ALLOW_INPUT_ASSEMBLER_INPUT_LAYOUT | // Only the input assembler stage needs access to the constant buffer.
 		D3D12_ROOT_SIGNATURE_FLAG_DENY_DOMAIN_SHADER_ROOT_ACCESS |
 		D3D12_ROOT_SIGNATURE_FLAG_DENY_GEOMETRY_SHADER_ROOT_ACCESS |
-		D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS |
-		D3D12_ROOT_SIGNATURE_FLAG_DENY_PIXEL_SHADER_ROOT_ACCESS;
+		D3D12_ROOT_SIGNATURE_FLAG_DENY_HULL_SHADER_ROOT_ACCESS;
 
 	CD3DX12_ROOT_SIGNATURE_DESC descRootSignature;
-	descRootSignature.Init(1, &parameter, 0, nullptr, rootSignatureFlags);
+	descRootSignature.Init(_countof(parameter), parameter, 0, nullptr, rootSignatureFlags);
 
 	ComPtr<ID3DBlob> pSignature;
 	ComPtr<ID3DBlob> pError;
 	DX::ThrowIfFailed(D3D12SerializeRootSignature(&descRootSignature, D3D_ROOT_SIGNATURE_VERSION_1, pSignature.GetAddressOf(), pError.GetAddressOf()));
 	DX::ThrowIfFailed(d3dDevice->CreateRootSignature(0, pSignature->GetBufferPointer(), pSignature->GetBufferSize(), IID_PPV_ARGS(&m_rootSignature)));
+
 	NAME_D3D12_OBJECT(m_rootSignature);
 }
 
@@ -196,7 +201,7 @@ void BaseSceneRenderer::CreateConstantBuffer()
 	// Create a descriptor heap for the constant buffers.
 	{
 		D3D12_DESCRIPTOR_HEAP_DESC heapDesc = {};
-		heapDesc.NumDescriptors = DX::c_frameCount;
+		heapDesc.NumDescriptors = DX::c_frameCount * 2;
 		heapDesc.Type = D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV;
 		// This flag indicates that this descriptor heap can be bound to the pipeline and that descriptors contained in it can be referenced by a root table.
 		heapDesc.Flags = D3D12_DESCRIPTOR_HEAP_FLAG_SHADER_VISIBLE;
@@ -205,38 +210,56 @@ void BaseSceneRenderer::CreateConstantBuffer()
 		NAME_D3D12_OBJECT(m_cbvHeap);
 	}
 
-	CD3DX12_RESOURCE_DESC constantBufferDesc = CD3DX12_RESOURCE_DESC::Buffer(DX::c_frameCount * c_alignedConstantBufferSize);
 	CD3DX12_HEAP_PROPERTIES uploadHeapProperties(D3D12_HEAP_TYPE_UPLOAD);
 	DX::ThrowIfFailed(d3dDevice->CreateCommittedResource(
 		&uploadHeapProperties,
 		D3D12_HEAP_FLAG_NONE,
-		&constantBufferDesc,
+		&CD3DX12_RESOURCE_DESC::Buffer(DX::c_frameCount * c_alignedObjectConstantBufferSize),
+		D3D12_RESOURCE_STATE_GENERIC_READ,
+		nullptr,
+		IID_PPV_ARGS(&m_objectConstantBuffer)));
+
+	DX::ThrowIfFailed(d3dDevice->CreateCommittedResource(
+		&uploadHeapProperties,
+		D3D12_HEAP_FLAG_NONE,
+		&CD3DX12_RESOURCE_DESC::Buffer(DX::c_frameCount * c_alignedPassConstantBufferSize),
 		D3D12_RESOURCE_STATE_GENERIC_READ,
 		nullptr,
 		IID_PPV_ARGS(&m_passConstantBuffer)));
 
+	NAME_D3D12_OBJECT(m_objectConstantBuffer);
 	NAME_D3D12_OBJECT(m_passConstantBuffer);
 
 	// Create constant buffer views to access the upload buffer.
-	D3D12_GPU_VIRTUAL_ADDRESS cbvGpuAddress = m_passConstantBuffer->GetGPUVirtualAddress();
-	CD3DX12_CPU_DESCRIPTOR_HANDLE cbvCpuHandle(m_cbvHeap->GetCPUDescriptorHandleForHeapStart());
+	D3D12_CONSTANT_BUFFER_VIEW_DESC cbvDesc[2];
+	cbvDesc[0].BufferLocation = m_objectConstantBuffer->GetGPUVirtualAddress();
+	cbvDesc[0].SizeInBytes = c_alignedObjectConstantBufferSize;
+	cbvDesc[1].BufferLocation = m_passConstantBuffer->GetGPUVirtualAddress();
+	cbvDesc[1].SizeInBytes = c_alignedPassConstantBufferSize;
+
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cbvCpuHandle0(m_cbvHeap->GetCPUDescriptorHandleForHeapStart(), 0, 0);
 	m_cbvDescriptorSize = d3dDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cbvCpuHandle1(m_cbvHeap->GetCPUDescriptorHandleForHeapStart(), 1, m_cbvDescriptorSize);
 
 	for (int n = 0; n < DX::c_frameCount; n++)
 	{
-		D3D12_CONSTANT_BUFFER_VIEW_DESC desc;
-		desc.BufferLocation = cbvGpuAddress;
-		desc.SizeInBytes = c_alignedConstantBufferSize;
-		d3dDevice->CreateConstantBufferView(&desc, cbvCpuHandle);
+		d3dDevice->CreateConstantBufferView(&cbvDesc[0], cbvCpuHandle0);
+		d3dDevice->CreateConstantBufferView(&cbvDesc[1], cbvCpuHandle1);
 
-		cbvGpuAddress += desc.SizeInBytes;
-		cbvCpuHandle.Offset(m_cbvDescriptorSize);
+		cbvDesc[0].BufferLocation += cbvDesc[0].SizeInBytes;
+		cbvDesc[1].BufferLocation += cbvDesc[1].SizeInBytes;
+
+		cbvCpuHandle0.Offset(m_cbvDescriptorSize);
+		cbvCpuHandle1.Offset(m_cbvDescriptorSize);
 	}
 
 	// Map the constant buffers.
 	CD3DX12_RANGE readRange(0, 0);		// We do not intend to read from this resource on the CPU.
-	DX::ThrowIfFailed(m_passConstantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_mappedConstantBuffer)));
-	ZeroMemory(m_mappedConstantBuffer, DX::c_frameCount * c_alignedConstantBufferSize);
+	DX::ThrowIfFailed(m_objectConstantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_mappedObjectConstantBuffer)));
+	ZeroMemory(m_mappedObjectConstantBuffer, DX::c_frameCount * c_alignedObjectConstantBufferSize);
+
+	DX::ThrowIfFailed(m_passConstantBuffer->Map(0, &readRange, reinterpret_cast<void**>(&m_mappedPassConstantBuffer)));
+	ZeroMemory(m_mappedPassConstantBuffer, DX::c_frameCount * c_alignedPassConstantBufferSize);
 	// We don't unmap this until the app closes. Keeping things mapped for the lifetime of the resource is okay.
 }
 #pragma endregion
@@ -302,8 +325,10 @@ void BaseSceneRenderer::Update(DX::StepTimer const& timer)
 		}
 
 		// Update the constant buffer resource.
-		UINT8* destination = m_mappedConstantBuffer + (m_deviceResources->GetCurrentFrameIndex() * c_alignedConstantBufferSize);
-		memcpy(destination, &m_passConstantBufferData, sizeof(m_passConstantBufferData));
+		UINT8* objectConstantDestination = m_mappedObjectConstantBuffer + (m_deviceResources->GetCurrentFrameIndex() * c_alignedObjectConstantBufferSize);
+		memcpy(objectConstantDestination, &m_objectConstantBufferData, sizeof(m_objectConstantBufferData));
+		UINT8* passConstantDestination = m_mappedPassConstantBuffer + (m_deviceResources->GetCurrentFrameIndex() * c_alignedPassConstantBufferSize);
+		memcpy(passConstantDestination, &m_passConstantBufferData, sizeof(m_passConstantBufferData));
 	}
 }
 
@@ -345,7 +370,7 @@ void BaseSceneRenderer::LoadState()
 void BaseSceneRenderer::Rotate(float radians)
 {
 	// Prepare to pass the updated model matrix to the shader.
-	XMStoreFloat4x4(&m_passConstantBufferData.model, XMMatrixTranspose(XMMatrixRotationY(radians)));
+	XMStoreFloat4x4(&m_objectConstantBufferData.model, XMMatrixTranspose(XMMatrixRotationY(radians)));
 }
 
 void BaseSceneRenderer::StartTracking()
