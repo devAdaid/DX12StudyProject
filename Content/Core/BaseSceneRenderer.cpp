@@ -157,18 +157,6 @@ void BaseSceneRenderer::CreateGeometry()
 		{ XMFLOAT3(0.5f,  0.5f, -0.5f), XMFLOAT3(1.0f, 1.0f, 0.0f) },
 		{ XMFLOAT3(0.5f,  0.5f,  0.5f), XMFLOAT3(1.0f, 1.0f, 1.0f) },
 	};
-
-	const UINT vertexBufferSize = sizeof(VertexPositionColor) * cubeVertices.size();
-
-	// Create the vertex buffer resource in the GPU's default heap and copy vertex data into it using the upload heap.
-	// The upload resource must not be released until after the GPU has finished using it.
-	Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferUpload;
-	m_vertexBuffer = DXUtil::CreateDefaultBuffer(d3dDevice, m_commandList.Get(), vertexBufferUpload, cubeVertices.data(), vertexBufferSize, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
-	NAME_D3D12_OBJECT(m_vertexBuffer);
-
-	// Load mesh indices. Each trio of indices represents a triangle to be rendered on the screen.
-	// For example: 0,2,1 means that the vertices with indexes 0, 2 and 1 from the vertex buffer compose the
-	// first triangle of this mesh.
 	vector<unsigned short> cubeIndices =
 	{
 		0, 2, 1, // -x
@@ -190,28 +178,12 @@ void BaseSceneRenderer::CreateGeometry()
 		1, 7, 5,
 	};
 
-	const UINT indexBufferSize = sizeof(unsigned short) * cubeIndices.size();
-
-	// Create the index buffer resource in the GPU's default heap and copy index data into it using the upload heap.
-	// The upload resource must not be released until after the GPU has finished using it.
-	Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferUpload;
-	m_indexBuffer = DXUtil::CreateDefaultBuffer(d3dDevice, m_commandList.Get(), indexBufferUpload, cubeIndices.data(), indexBufferSize, D3D12_RESOURCE_STATE_INDEX_BUFFER);
-	NAME_D3D12_OBJECT(m_indexBuffer);
-
+	m_cubeGeometry = MeshGeometry("Cube", cubeVertices, cubeIndices, d3dDevice, m_commandList.Get());
 
 	// Close the command list and execute it to begin the vertex/index buffer copy into the GPU's default heap.
 	DX::ThrowIfFailed(m_commandList->Close());
 	ID3D12CommandList* ppCommandLists[] = { m_commandList.Get() };
 	m_deviceResources->GetCommandQueue()->ExecuteCommandLists(_countof(ppCommandLists), ppCommandLists);
-
-	// Create vertex/index buffer views.
-	m_vertexBufferView.BufferLocation = m_vertexBuffer->GetGPUVirtualAddress();
-	m_vertexBufferView.StrideInBytes = sizeof(VertexPositionColor);
-	m_vertexBufferView.SizeInBytes = sizeof(VertexPositionColor) * cubeVertices.size();
-
-	m_indexBufferView.BufferLocation = m_indexBuffer->GetGPUVirtualAddress();
-	m_indexBufferView.SizeInBytes = sizeof(unsigned short) * cubeIndices.size();
-	m_indexBufferView.Format = DXGI_FORMAT_R16_UINT;
 
 	// Wait for the command list to finish executing; the vertex/index buffers need to be uploaded to the GPU before the upload resources go out of scope.
 	m_deviceResources->WaitForGpu();
@@ -440,8 +412,8 @@ bool BaseSceneRenderer::Render()
 		m_commandList->OMSetRenderTargets(1, &renderTargetView, false, &depthStencilView);
 
 		m_commandList->IASetPrimitiveTopology(D3D_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-		m_commandList->IASetVertexBuffers(0, 1, &m_vertexBufferView);
-		m_commandList->IASetIndexBuffer(&m_indexBufferView);
+		m_commandList->IASetVertexBuffers(0, 1, &(m_cubeGeometry.VertexBufferView));
+		m_commandList->IASetIndexBuffer(&(m_cubeGeometry.IndexBufferView));
 		m_commandList->DrawIndexedInstanced(36, 1, 0, 0, 0);
 
 		// Indicate that the render target will now be used to present when the command list is done executing.

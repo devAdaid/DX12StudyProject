@@ -17,13 +17,14 @@ namespace DX12StudyProject
 		VertexByteStride = sizeof(VertexPositionColor);
 		IndexFormat = DXGI_FORMAT_R16_UINT;
 
-		Microsoft::WRL::ComPtr<ID3D12Resource> vertexBufferUpload;
-		VertexBuffer = DXUtil::CreateDefaultBuffer(d3dDevice, pCommandList, vertexBufferUpload, Vertices.data(), VerticesByteSize, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
+		VertexBuffer = DXUtil::CreateDefaultBuffer(d3dDevice, pCommandList, VertexBufferUpload, Vertices.data(), VerticesByteSize, D3D12_RESOURCE_STATE_VERTEX_AND_CONSTANT_BUFFER);
 		NAME_D3D12_OBJECT(VertexBuffer);
 
-		Microsoft::WRL::ComPtr<ID3D12Resource> indexBufferUpload;
-		IndexBuffer = DXUtil::CreateDefaultBuffer(d3dDevice, pCommandList, indexBufferUpload, Indices.data(), IndicesByteSize, D3D12_RESOURCE_STATE_INDEX_BUFFER);
+		IndexBuffer = DXUtil::CreateDefaultBuffer(d3dDevice, pCommandList, IndexBufferUpload, Indices.data(), IndicesByteSize, D3D12_RESOURCE_STATE_INDEX_BUFFER);
 		NAME_D3D12_OBJECT(IndexBuffer);
+
+		VertexBufferView = GetVertexBufferView();
+		IndexBufferView = GetIndexBufferView();
 	}
 
 	D3D12_VERTEX_BUFFER_VIEW MeshGeometry::GetVertexBufferView() const

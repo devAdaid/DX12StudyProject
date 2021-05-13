@@ -4,6 +4,7 @@
 #include "ShaderStructures.h"
 #include "..\Common\StepTimer.h"
 #include <ppltasks.h>
+#include "MeshGeometry.h"
 
 namespace DX12StudyProject
 {
@@ -50,8 +51,9 @@ namespace DX12StudyProject
 		Microsoft::WRL::ComPtr<ID3D12RootSignature>			m_rootSignature;
 		Microsoft::WRL::ComPtr<ID3D12PipelineState>			m_pipelineState;
 		Microsoft::WRL::ComPtr<ID3D12DescriptorHeap>		m_cbvHeap;
-		Microsoft::WRL::ComPtr<ID3D12Resource>				m_vertexBuffer;
-		Microsoft::WRL::ComPtr<ID3D12Resource>				m_indexBuffer;
+		//Microsoft::WRL::ComPtr<ID3D12Resource>				m_vertexBuffer;
+		//Microsoft::WRL::ComPtr<ID3D12Resource>				m_indexBuffer;
+		MeshGeometry										m_cubeGeometry;
 		Microsoft::WRL::ComPtr<ID3D12Resource>				m_passConstantBuffer;
 		//Microsoft::WRL::ComPtr<ID3D12Resource>				m_objectConstantBuffer;
 		ModelViewProjectionConstantBuffer						m_passConstantBufferData;
@@ -61,8 +63,8 @@ namespace DX12StudyProject
 		D3D12_RECT											m_scissorRect;
 		std::vector<byte>									m_vertexShader;
 		std::vector<byte>									m_pixelShader;
-		D3D12_VERTEX_BUFFER_VIEW							m_vertexBufferView;
-		D3D12_INDEX_BUFFER_VIEW								m_indexBufferView;
+		//D3D12_VERTEX_BUFFER_VIEW							m_vertexBufferView;
+		//D3D12_INDEX_BUFFER_VIEW								m_indexBufferView;
 
 		// Variables used with the rendering loop.
 		bool	m_loadingComplete;

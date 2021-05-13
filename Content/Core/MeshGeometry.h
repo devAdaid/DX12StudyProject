@@ -9,7 +9,7 @@ using namespace std;
 
 namespace DX12StudyProject
 {
-	class MeshGeometry
+	struct MeshGeometry
 	{
 	public:
 		string Name;
@@ -25,12 +25,19 @@ namespace DX12StudyProject
 		Microsoft::WRL::ComPtr<ID3D12Resource> VertexBuffer = nullptr;
 		Microsoft::WRL::ComPtr<ID3D12Resource> IndexBuffer = nullptr;
 
+		Microsoft::WRL::ComPtr<ID3D12Resource> VertexBufferUpload = nullptr;
+		Microsoft::WRL::ComPtr<ID3D12Resource> IndexBufferUpload = nullptr;
+
+		D3D12_VERTEX_BUFFER_VIEW VertexBufferView;
+		D3D12_INDEX_BUFFER_VIEW IndexBufferView;
+
 		MeshGeometry(string name,
 			vector<VertexPositionColor> vertices,
 			vector<unsigned short> indices,
 			ID3D12Device* d3dDevice,
 			ID3D12GraphicsCommandList* commandList);
-		~MeshGeometry();
+		MeshGeometry() {}
+		~MeshGeometry() {}
 
 		D3D12_VERTEX_BUFFER_VIEW GetVertexBufferView() const;
 		D3D12_INDEX_BUFFER_VIEW GetIndexBufferView() const;
