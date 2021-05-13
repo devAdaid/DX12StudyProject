@@ -131,6 +131,12 @@ void BaseSceneRenderer::CreatePipelineState()
 
 void BaseSceneRenderer::CreateAssets()
 {
+	CreateGeometry();
+	CreateConstantBuffer();
+}
+
+void BaseSceneRenderer::CreateGeometry()
+{
 	auto d3dDevice = m_deviceResources->GetD3DDevice();
 
 	// Create a command list.
@@ -190,8 +196,6 @@ void BaseSceneRenderer::CreateAssets()
 	m_indexBuffer = DXUtil::CreateDefaultBuffer(d3dDevice, m_commandList.Get(), indexBufferUpload, reinterpret_cast<BYTE*>(cubeIndices), indexBufferSize, D3D12_RESOURCE_STATE_INDEX_BUFFER);
 	NAME_D3D12_OBJECT(m_indexBuffer);
 
-	// Create Constant Buffer
-	CreateConstantBuffer();
 
 	// Close the command list and execute it to begin the vertex/index buffer copy into the GPU's default heap.
 	DX::ThrowIfFailed(m_commandList->Close());
@@ -209,10 +213,6 @@ void BaseSceneRenderer::CreateAssets()
 
 	// Wait for the command list to finish executing; the vertex/index buffers need to be uploaded to the GPU before the upload resources go out of scope.
 	m_deviceResources->WaitForGpu();
-}
-
-void BaseSceneRenderer::CreateGeometry()
-{
 }
 
 void BaseSceneRenderer::CreateConstantBuffer()
