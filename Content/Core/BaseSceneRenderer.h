@@ -41,7 +41,7 @@ namespace DX12StudyProject
 
 	private:
 		// Constant buffers must be 256-byte aligned.
-		static const UINT c_alignedConstantBufferSize = (sizeof(ModelViewProjectionConstantBuffer) + 255) & ~255;
+		static const UINT c_alignedConstantBufferSize = (sizeof(PassConstantBuffer) + 255) & ~255;
 
 		// Cached pointer to device resources.
 		std::shared_ptr<DX::DeviceResources> m_deviceResources;
@@ -56,7 +56,7 @@ namespace DX12StudyProject
 		MeshGeometry										m_cubeGeometry;
 		Microsoft::WRL::ComPtr<ID3D12Resource>				m_passConstantBuffer;
 		//Microsoft::WRL::ComPtr<ID3D12Resource>				m_objectConstantBuffer;
-		ModelViewProjectionConstantBuffer						m_passConstantBufferData;
+		PassConstantBuffer									m_passConstantBufferData;
 		//DirectX::XMFLOAT4X4									m_objectConstantBufferData;
 		UINT8* m_mappedConstantBuffer;
 		UINT												m_cbvDescriptorSize;
