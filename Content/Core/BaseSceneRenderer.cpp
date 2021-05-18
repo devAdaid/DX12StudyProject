@@ -237,20 +237,18 @@ void BaseSceneRenderer::CreateConstantBuffer()
 	cbvDesc[1].BufferLocation = m_passConstantBuffer->GetGPUVirtualAddress();
 	cbvDesc[1].SizeInBytes = c_alignedPassConstantBufferSize;
 
-	CD3DX12_CPU_DESCRIPTOR_HANDLE cbvCpuHandle0(m_cbvHeap->GetCPUDescriptorHandleForHeapStart(), 0, 0);
+	CD3DX12_CPU_DESCRIPTOR_HANDLE cbvCpuHandle(m_cbvHeap->GetCPUDescriptorHandleForHeapStart(), 0, 0);
 	m_cbvDescriptorSize = d3dDevice->GetDescriptorHandleIncrementSize(D3D12_DESCRIPTOR_HEAP_TYPE_CBV_SRV_UAV);
-	CD3DX12_CPU_DESCRIPTOR_HANDLE cbvCpuHandle1(m_cbvHeap->GetCPUDescriptorHandleForHeapStart(), 1, m_cbvDescriptorSize);
 
 	for (int n = 0; n < DX::c_frameCount; n++)
 	{
-		d3dDevice->CreateConstantBufferView(&cbvDesc[0], cbvCpuHandle0);
-		d3dDevice->CreateConstantBufferView(&cbvDesc[1], cbvCpuHandle1);
-
+		d3dDevice->CreateConstantBufferView(&cbvDesc[0], cbvCpuHandle);
 		cbvDesc[0].BufferLocation += cbvDesc[0].SizeInBytes;
-		cbvDesc[1].BufferLocation += cbvDesc[1].SizeInBytes;
+		cbvCpuHandle.Offset(m_cbvDescriptorSize);
 
-		cbvCpuHandle0.Offset(m_cbvDescriptorSize);
-		cbvCpuHandle1.Offset(m_cbvDescriptorSize);
+		d3dDevice->CreateConstantBufferView(&cbvDesc[1], cbvCpuHandle);
+		cbvDesc[1].BufferLocation += cbvDesc[1].SizeInBytes;
+		cbvCpuHandle.Offset(m_cbvDescriptorSize);
 	}
 
 	// Map the constant buffers.
@@ -415,7 +413,7 @@ bool BaseSceneRenderer::Render()
 		m_commandList->SetDescriptorHeaps(_countof(ppHeaps), ppHeaps);
 
 		// Bind the current frame's constant buffer to the pipeline.
-		CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle(m_cbvHeap->GetGPUDescriptorHandleForHeapStart(), m_deviceResources->GetCurrentFrameIndex(), m_cbvDescriptorSize);
+		CD3DX12_GPU_DESCRIPTOR_HANDLE gpuHandle(m_cbvHeap->GetGPUDescriptorHandleForHeapStart(), m_deviceResources->GetCurrentFrameIndex(), m_cbvDescriptorSize * 2);
 		m_commandList->SetGraphicsRootDescriptorTable(0, gpuHandle);
 
 		// Set the viewport and scissor rectangle.
